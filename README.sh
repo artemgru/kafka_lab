@@ -11,7 +11,7 @@ xcode-select --install
 pip install watchdog
 
 # The paths to useful kafka *.sh tools
-export KAFKA_ROOT_DIR=./Kafka_Docker
+export KAFKA_ROOT_DIR=`pwd`
 cd ${KAFKA_ROOT_DIR}
 export KAFKA_DIR=${KAFKA_ROOT_DIR}/kafka_2.13-3.7.0
 export PATH=${KAFKA_DIR}/bin:${PATH}
