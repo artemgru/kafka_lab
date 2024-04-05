@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Installing the dependencies
+#install docker from here first: https://docs.docker.com/desktop/install/mac-install/
 pip3 install kafka-python
 pip3 install lz4
 pip3 install streamlit
@@ -10,7 +11,7 @@ xcode-select --install
 pip install watchdog
 
 # The paths to useful kafka *.sh tools
-export KAFKA_ROOT_DIR=/Users/art-gruzdev/Desktop/Kafka_Docker
+export KAFKA_ROOT_DIR=./Kafka_Docker
 cd ${KAFKA_ROOT_DIR}
 export KAFKA_DIR=${KAFKA_ROOT_DIR}/kafka_2.13-3.7.0
 export PATH=${KAFKA_DIR}/bin:${PATH}
@@ -41,6 +42,7 @@ kafka-topics.sh --bootstrap-server localhost:9092 --list
 #       b) Top-25 songs
 #       c) Get Top-3 music genres and show Top-5 songs for each one
 #       d) Show 'Feature Distribution' histograms
+#       e) Put the data for visualization into 'visual_data' kafka topic
 python3 Kafka_lab.py
 
 
