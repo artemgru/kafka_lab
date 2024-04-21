@@ -32,8 +32,7 @@ class Consumer:
                                       group_id=consumer_group,
                                       consumer_timeout_ms=timeout,
                                       value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-                                      auto_offset_reset='earliest')
-                                      #api_version=(0, 10))        
+                                      auto_offset_reset='earliest')       
 
     def process_data_to(self, result_topic_name):
         producer = Producer()
@@ -42,6 +41,21 @@ class Consumer:
             f = str(msg['track_genre'])
             if f == 'pop' or f == 'acoustic' or f == 'disco' or f == 'k-pop':
                 producer.produce_message(result_topic_name, msg)
+
+    def df_prepare(self):
+        df = pd.DataFrame()
+        keys_flag = False
+        for message in self.consumer:
+            msg = message.value
+            if keys_flag == False:
+                key_list=list(msg.keys())
+                if key_list:
+                    keys_flag = True
+            df = pd.concat([df, pd.json_normalize(msg)])        
+        df.columns = key_list
+        df = df.drop_duplicates(subset=['track_name'])
+
+        return df  
 
     def visual_figure_preparing(self, visualize_df):
 
@@ -92,18 +106,8 @@ class Consumer:
         fig.update_layout(template='plotly',title_x=0.5)
         return fig
 
-    def visualize_data(self, result_topic_name):
-        df = pd.DataFrame()
-        keys_flag = False
-        for message in self.consumer:
-            msg = message.value
-            if keys_flag == False:
-                key_list=list(msg.keys())
-                if key_list:
-                    keys_flag = True
-            df = pd.concat([df, pd.json_normalize(msg)])        
-        df.columns = key_list
-        df = df.drop_duplicates(subset=['track_name'])  
+    def visualize_data(self, general_dataframe, result_topic_name):
+        df = general_dataframe.copy()
 
         visualize_df = pd.DataFrame()
         visualize_df = df[['artists', 'album_name', 'track_name', 'popularity', 'track_genre', 'danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'valence', 'tempo']].copy()
@@ -119,7 +123,17 @@ class Consumer:
         fig = self.visual_figure_preparing(visualize_df)
         fig.show()
 
-    
+    def popularity_prediction(self, general_dataframe, result_topic_name):
+        working_df = general_dataframe.copy()
+        prediction_df = pd.DataFrame()
+        # SOME DATAFRAME PROCESSING + ML LOGIC. As the result we suppose to have 'prediction_df' data frame: [track_id predicted_popularity original_popularity prediction_error]. Of course, you can choose any output you want!!
+
+        # PRODUCE THE prediction output dataframe into 'prediction_data' TOPIC
+        track_list = prediction_df.to_dict(orient='records')
+        producer = Producer()
+        for track in range(0, len(track_list)):
+            producer.produce_message(result_topic_name, track_list[track])
+
 def main():
         # PRODUCE THE DATASET FROM CSV TO 'raw_data' KAFKA TOPIC
         producer = Producer()
@@ -134,9 +148,20 @@ def main():
 
         # 1) CONSUME THE RAW DATA FROM 'raw_data' TOPIC
         # 2) DO SOME PANDAS DATAFRAME PREPARATIONS
-        # 3) PRODUCE THE VISUALIZED_DF TO 'data_for_visualization' KAFKA TOPIC
+        # 3) PRODUCE THE VISUALIZED_DF TO 'visual_data' KAFKA TOPIC
         visualize_consumer = Consumer('raw_data', 'visual_consumer', 2400000)
-        visualize_consumer.visualize_data('visual_data')
+        general_dataframe = visualize_consumer.df_prepare()
+        visualize_consumer.visualize_data(general_dataframe, 'visual_data')
+
+        # 1) CONSUME THE RAW DATA FROM 'raw_data' TOPIC
+        # 2) DO SOME PANDAS DATAFRAME PREPARATIONS
+        # 3) DO SOME MACHINE LEARNING TO PREDICT TRACK POPULARITY 
+        # 3) PRODUCE THE PREDICTED DATA TO 'ml_results' KAFKA TOPIC
+        ml_consumer = Consumer('raw_data', 'ml_consumer', 2400000)
+        general_dataframe = visualize_consumer.df_prepare()        
+        ml_consumer.popularity_prediction(general_dataframe, 'ml_results')
+
+
 
 if __name__ == "__main__":
     main()
